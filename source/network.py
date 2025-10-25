@@ -56,22 +56,38 @@ class Network:
 
     def __load_subnet(self):
         for _, row in self.buses.iterrows():
-            self.subnet.add("Bus", **row)
+            self.subnet.add(
+                "Bus",
+                row["name"],
+                bus_name=row["BusName"],
+                x=row["x"],
+                y=row["y"])
         
         for _, row in self.generators.iterrows():
-            self.subnet.add("Generator", **row)
+            self.subnet.add(
+                "Generator",
+                bus=row["bus"],
+                name=row["name"],
+                p_nom=row["p_nom"],
+                marginal_cost=1)
 
         for _, row in self.lines.iterrows():
-            self.subnet.add("Line", **row)
+            self.subnet.add(
+                "Line",
+                name=row["name"],
+                bus0=row["bus0"],
+                bus1=row["bus1"],
+                x=row["x"],
+                s_nom=row["s_nom"])
 
         for _, row in self.loads.iterrows():
             self.subnet.add("Load", **row)
 
-        for _, row in self.transformers.iterrows():
-            self.subnet.add("Transformer", **row)
+        #for _, row in self.transformers.iterrows():
+        #    self.subnet.add("Transformer", **row)
             
-        for _, row in self.shunts.iterrows():
-            self.subnet.add("ShuntImpedance", **row)
+        #for _, row in self.shunts.iterrows():
+        #    self.subnet.add("ShuntImpedance", **row)
         
     def apply_atmospherics(self, **kwargs):
         params = PartialConductorParams(**kwargs)
@@ -79,6 +95,6 @@ class Network:
 
     def solve(self):
         self.subnet.optimize()
-        pass
+        self.subnet.pf()
 
 network = Network()
