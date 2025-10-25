@@ -55,6 +55,8 @@ WIND_SPEED_STEP = 2.0  # ft/sec
 
 # IEEE738 default parameters (you might want to make some of these dynamic later)
 DEFAULT_IEEE738_PARAMS = {
+    "Ta": 26,
+    "WindVelocity": 4.0,
     "WindAngleDeg": 45.0,
     "Elevation": 10.0,  # feet (Hawaii sea level is a reasonable default)
     "Latitude": 21.3,   # Hawaii latitude
@@ -63,8 +65,7 @@ DEFAULT_IEEE738_PARAMS = {
     "Absorptivity": 0.7,
     "Direction": "NorthSouth", # Orientation of conductor
     "Atmosphere": "Clear",
-    "Date": "12 Jun",
-    "Tc": 75.0, # Max operating temperature, usually from line data
+    "Date": "12 Jun"
 }
 
 # Classification thresholds (as percentage of rating)

@@ -27,7 +27,7 @@ class Conductors:
         return None
     
     def find_rating(self, name, mot):
-        for _, conductor in self.rating.iterrows():
+        for _, conductor in self.ratings.iterrows():
             if conductor["ConductorName"] == name and conductor["MOT"] == mot:
                 return conductor
         return None
@@ -41,7 +41,7 @@ class PartialConductorParams:
 
     def apply(self, **remainder):
         full_arguments = { **self.partials, **remainder }
-        return ConductorParams(**full_arguments)
+        return ieee738.ConductorParams(**full_arguments)
 
         
 class Network:
@@ -53,7 +53,8 @@ class Network:
         "loads",
         "generators",
         "transformers",
-        "shunts"
+        "shunts",
+        "results"
     ]
 
     def __init__(self):
@@ -64,6 +65,7 @@ class Network:
         self.loads = pandas.read_csv(LOADS_FILE)
         self.transformers = pandas.read_csv(TRANS_FILE)
         self.shunts = pandas.read_csv(SHUNT_FILE)
+        self.results = list()
         self.__create_subnet()
 
     def __create_subnet(self):
@@ -121,15 +123,43 @@ class Network:
         I = conductor.steady_state_thermal_rating()
         Ikv = 3**0.5 * I * (v_nom * 1000)  / 1e6
         line["s_nom"] = Ikv
+        line["v_nom"] = v_nom
         line["Qs"] = conductor.qs
         line["Qc"] = conductor.qc
         line["Qr"] = conductor.qr
         return line
+
+    @staticmethod
+    def __calculate_stress(network, line):
+        s_nom   = line["s_nom"]
+        v_nom   = line["v_nom"]
+        ratings = network.conductors.find_rating(line["conductor"], line["MOT"])
+        
+        load_a  = abs(network.subnet.lines_t["p0"][line.name]["now"])
+        cap     = ratings["RatingMVA_69"] if int(v_nom) == 69 else ratings["RatingMVA_138"]
+        at_risk = s_nom > cap
+        overcap = load_a > cap
+        load    = load_a / cap
+
+        result = {
+            "branch_name"     : line["branch_name"],
+            "load_a"          : load_a,
+            "rated_capacity"  : cap,
+            "actual_capacity" : s_nom,
+            "at_risk"         : at_risk,
+            "overcapacity"    : overcap,
+            "load_percentage" : load
+        }
+        return result
     
     def apply_atmospherics(self, **kwargs):
         atmos_params = PartialConductorParams(**kwargs)
         self.subnet.lines = self.subnet.lines.apply(
             lambda line : self.__adjust_s_nom(self, atmos_params, line), axis=1)
+        self.solve()
+        self.results = self.subnet.lines.apply(
+            lambda line : self.__calculate_stress(self, line), axis=1, result_type="expand")
+        return self.results
 
     def reset(self):
         self.__create_subnet()
@@ -137,31 +167,3 @@ class Network:
     def solve(self):
         self.subnet.optimize()
         self.subnet.pf()
-
-network = Network()
-atmospherics = {
-    "Ta" : 28,
-    "WindVelocity" : 1.0,
-    "WindAngleDeg" : 30,
-    "Elevation" : 100,
-    "Latitude" : 11.0,
-    "SunTime" : 12,
-    "Emissivity" : 0.8,
-    "Absorptivity" : 0.8,
-    "Direction" : "EastWest",
-    "Atmosphere" : "Clear"
-}
-ambient_defaults = {
-    'Ta': 25,
-    'WindVelocity': 2.0, 
-    'WindAngleDeg': 90,
-    'SunTime': 12,
-    'Elevation': 1000,
-    'Latitude': 27,
-    'SunTime': 12,
-    'Emissivity': 0.8,
-    'Absorptivity': 0.8,
-    'Direction': 'EastWest',
-    'Atmosphere': 'Clear',
-    'Date': '12 Jun',
-}
