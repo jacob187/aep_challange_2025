@@ -137,31 +137,3 @@ class Network:
     def solve(self):
         self.subnet.optimize()
         self.subnet.pf()
-
-network = Network()
-atmospherics = {
-    "Ta" : 28,
-    "WindVelocity" : 1.0,
-    "WindAngleDeg" : 30,
-    "Elevation" : 100,
-    "Latitude" : 11.0,
-    "SunTime" : 12,
-    "Emissivity" : 0.8,
-    "Absorptivity" : 0.8,
-    "Direction" : "EastWest",
-    "Atmosphere" : "Clear"
-}
-ambient_defaults = {
-    'Ta': 25,
-    'WindVelocity': 2.0, 
-    'WindAngleDeg': 90,
-    'SunTime': 12,
-    'Elevation': 1000,
-    'Latitude': 27,
-    'SunTime': 12,
-    'Emissivity': 0.8,
-    'Absorptivity': 0.8,
-    'Direction': 'EastWest',
-    'Atmosphere': 'Clear',
-    'Date': '12 Jun',
-}
