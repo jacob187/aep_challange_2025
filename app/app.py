@@ -1,4 +1,3 @@
-# Path: app/app.py
 import streamlit as st
 import geopandas as gpd
 import plotly.graph_objects as go
@@ -9,13 +8,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Import from src/config
-from src.config import ONELINE_BUSSES_GEOJSON, ONELINE_LINES_GEOJSON
+import src.config as config
 
 st.set_page_config(layout="wide", page_title="AEP Grid Layout")
-
-st.title("🗺️ Hawaii 40-Bus Grid Layout")
-st.markdown("---")
 
 st.subheader("Transmission Grid Visualization")
 st.write("Interactive map of transmission lines and buses loaded from GeoJSON files.")
@@ -24,8 +19,8 @@ st.write("Interactive map of transmission lines and buses loaded from GeoJSON fi
 @st.cache_data
 def load_gis_data():
     """Load GIS data for buses and lines."""
-    gis_busses_gdf = gpd.read_file(ONELINE_BUSSES_GEOJSON)
-    gis_lines_gdf = gpd.read_file(ONELINE_LINES_GEOJSON)
+    gis_busses_gdf = gpd.read_file(config.ONELINE_BUSSES_GEOJSON)
+    gis_lines_gdf = gpd.read_file(config.ONELINE_LINES_GEOJSON)
     return gis_busses_gdf, gis_lines_gdf
 
 gis_busses_gdf, gis_lines_gdf = load_gis_data()
@@ -78,11 +73,11 @@ if not gis_busses_gdf.empty:
 # Update layout
 fig.update_layout(
     mapbox_style="open-street-map",
-    mapbox_zoom=7,
+    mapbox_zoom=8, # Increased zoom level to focus more on Oahu
     mapbox_center={"lat": center_lat, "lon": center_lon},
     margin={"r": 0, "t": 0, "l": 0, "b": 0},
     height=700,
-    title="Hawaii 40-Bus Transmission Grid"
+    title="Hawaii 40-Bus Transmission Grid (Oahu)"
 )
 
 st.plotly_chart(fig, use_container_width=True)
