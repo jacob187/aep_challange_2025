@@ -56,38 +56,23 @@ class Network:
 
     def __load_subnet(self):
         for _, row in self.buses.iterrows():
-            self.subnet.add(
-                "Bus",
-                row["name"],
-                bus_name=row["BusName"],
-                x=row["x"],
-                y=row["y"])
+            self.subnet.add("Bus", **(row.to_dict()))
         
         for _, row in self.generators.iterrows():
-            self.subnet.add(
-                "Generator",
-                bus=row["bus"],
-                name=row["name"],
-                p_nom=row["p_nom"],
-                marginal_cost=1)
+            row["marginal_cost"] = 1
+            self.subnet.add("Generator", **(row.to_dict()))
 
         for _, row in self.lines.iterrows():
-            self.subnet.add(
-                "Line",
-                name=row["name"],
-                bus0=row["bus0"],
-                bus1=row["bus1"],
-                x=row["x"],
-                s_nom=row["s_nom"])
+            self.subnet.add("Line", **(row.to_dict()))
 
         for _, row in self.loads.iterrows():
-            self.subnet.add("Load", **row)
+            self.subnet.add("Load", **(row.to_dict()))
 
-        #for _, row in self.transformers.iterrows():
-        #    self.subnet.add("Transformer", **row)
+        for _, row in self.transformers.iterrows():
+            self.subnet.add("Transformer", **row)
             
-        #for _, row in self.shunts.iterrows():
-        #    self.subnet.add("ShuntImpedance", **row)
+        for _, row in self.shunts.iterrows():
+            self.subnet.add("ShuntImpedance", **row)
         
     def apply_atmospherics(self, **kwargs):
         params = PartialConductorParams(**kwargs)
