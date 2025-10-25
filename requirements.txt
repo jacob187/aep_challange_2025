@@ -1,0 +1,17 @@
+# Core dependencies
+pandas
+numpy
+pypsa
+pydantic
+
+# Visualization
+matplotlib
+plotly
+geopandas
+
+# App
+streamlit
+streamlit-extras
+# Development
+pytest
+jupyter
