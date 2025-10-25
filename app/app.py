@@ -25,13 +25,9 @@ def load_gis_data():
 
 gis_busses_gdf, gis_lines_gdf = load_gis_data()
 
-# Get center coordinates for the map
-if not gis_lines_gdf.empty:
-    # Calculate centroid of all lines to center map
-    center_lat = gis_lines_gdf.geometry.centroid.y.mean()
-    center_lon = gis_lines_gdf.geometry.centroid.x.mean()
-else:
-    center_lat, center_lon = 21.3, -157.8
+# Center the map on Honolulu
+center_lat = 21.4569
+center_lon = -157.87583
 
 # Create Plotly figure
 fig = go.Figure()
@@ -73,7 +69,7 @@ if not gis_busses_gdf.empty:
 # Update layout
 fig.update_layout(
     mapbox_style="open-street-map",
-    mapbox_zoom=8, # Increased zoom level to focus more on Oahu
+    mapbox_zoom=9, # Increased zoom level to focus more on Oahu
     mapbox_center={"lat": center_lat, "lon": center_lon},
     margin={"r": 0, "t": 0, "l": 0, "b": 0},
     height=700,
