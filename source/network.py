@@ -18,6 +18,18 @@ class Conductors:
     def __init__(self):
         self.library = pandas.read_csv(CDLIB)
         self.ratings = pandas.read_csv(CDRAT)
+
+    def find_library(self, name: str):
+        for _, conductor in self.library.iterrows():
+            if conductor["ConductorName"] == name:
+                return conductor
+        return None
+    
+    def find_rating(self, name: str):
+        for _, conductor in self.rating.iterrows():
+            if conductor["ConductorName"] == name:
+                return conductor
+        return None
     
 
 class PartialConductorParams:
@@ -28,7 +40,7 @@ class PartialConductorParams:
 
     def apply(self, **remainder):
         full_arguments = { **self.partials, **remainder }
-        return ConductorParams(**full_arguments)
+        return ieee738.ConductorParams(**full_arguments)
 
         
 class Network:
@@ -44,7 +56,6 @@ class Network:
     ]
 
     def __init__(self):
-        self.subnet = pypsa.Network()
         self.conductors = Conductors()
         self.buses = pandas.read_csv(BUSES_FILE)
         self.generators = pandas.read_csv(GENS_FILE)
@@ -52,9 +63,10 @@ class Network:
         self.loads = pandas.read_csv(LOADS_FILE)
         self.transformers = pandas.read_csv(TRANS_FILE)
         self.shunts = pandas.read_csv(SHUNT_FILE)
-        self.__load_subnet()
+        self.__create_subnet()
 
-    def __load_subnet(self):
+    def __create_subnet(self):
+        self.subnet = pypsa.Network()
         for _, row in self.buses.iterrows():
             self.subnet.add("Bus", **(row.to_dict()))
         
@@ -73,13 +85,41 @@ class Network:
             
         for _, row in self.shunts.iterrows():
             self.subnet.add("ShuntImpedance", **row)
-        
-    def apply_atmospherics(self, **kwargs):
-        params = PartialConductorParams(**kwargs)
-        pass
 
+    def apply_atmospherics(self, **kwargs):
+        atmos_params = PartialConductorParams(**kwargs)
+        for _, line in self.subnet.lines.iterrows():
+            conductor = network.conductors.find_library(line["conductor"])
+            params = atmos_params.apply(
+                Tc=line["MOT"],
+                Diameter=conductor["CDRAD_in"] * 2,
+                TLo=25,
+                RLo=conductor["RES_25C"] / 5280,
+                THi=50,
+                RHi=conductor["RES_50C"] / 5280)
+
+            conductor = ieee738.Conductor(params)
+            print(line["s_nom"], " := ", end=None)
+            line["s_nom"] = conductor.steady_state_thermal_rating()
+            print(line["s_nom"])
+
+    def reset(self):
+        self.__create_subnet()
+    
     def solve(self):
         self.subnet.optimize()
         self.subnet.pf()
 
 network = Network()
+atmospherics = {
+    "Ta" : 39,
+    "WindVelocity" : 1.0,
+    "WindAngleDeg" : 45,
+    "Elevation" : 100,
+    "Latitude" : 27.0,
+    "SunTime" : 12,
+    "Emissivity" : 0.5,
+    "Absorptivity" : 0.5,
+    "Direction" : "EastWest",
+    "Atmosphere" : "Clear"
+}
