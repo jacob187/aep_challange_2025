@@ -41,7 +41,7 @@ class PartialConductorParams:
 
     def apply(self, **remainder):
         full_arguments = { **self.partials, **remainder }
-        return ieee738.ConductorParams(**full_arguments)
+        return ConductorParams(**full_arguments)
 
         
 class Network:
