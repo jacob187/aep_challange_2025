@@ -86,22 +86,25 @@ class Network:
         for _, row in self.shunts.iterrows():
             self.subnet.add("ShuntImpedance", **row)
 
+    @staticmethod
+    def __adjust_s_nom(atmos_params, line):
+        conductor = network.conductors.find_library(line["conductor"])
+        params = atmos_params.apply(
+            Tc=line["MOT"],
+            Diameter=conductor["CDRAD_in"] * 2,
+            TLo=25,
+        RLo=conductor["RES_25C"] / 5280,
+        THi=50,
+        RHi=conductor["RES_50C"] / 5280)
+        
+        conductor = ieee738.Conductor(params)
+        line["s_nom"] = conductor.steady_state_thermal_rating()
+        return line
+    
     def apply_atmospherics(self, **kwargs):
         atmos_params = PartialConductorParams(**kwargs)
-        for _, line in self.subnet.lines.iterrows():
-            conductor = network.conductors.find_library(line["conductor"])
-            params = atmos_params.apply(
-                Tc=line["MOT"],
-                Diameter=conductor["CDRAD_in"] * 2,
-                TLo=25,
-                RLo=conductor["RES_25C"] / 5280,
-                THi=50,
-                RHi=conductor["RES_50C"] / 5280)
-
-            conductor = ieee738.Conductor(params)
-            print(line["s_nom"], " := ", end=None)
-            line["s_nom"] = conductor.steady_state_thermal_rating()
-            print(line["s_nom"])
+        self.subnet.lines = self.subnet.lines.apply(
+            lambda line : self.__adjust_s_nom(atmos_params, line), axis=1)
 
     def reset(self):
         self.__create_subnet()
