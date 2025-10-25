@@ -1,16 +1,17 @@
-import ieee738
+from . import config
+from .ieee738 import ConductorParams
 import pandas
 import pypsa
 
-LINES_FILE="../data/hawaii40_osu/csv/lines.csv"
-LOADS_FILE="../data/hawaii40_osu/csv/loads.csv"
-GENS_FILE ="../data/hawaii40_osu/csv/generators.csv"
-BUSES_FILE="../data/hawaii40_osu/csv/buses.csv"
-TRANS_FILE="../data/hawaii40_osu/csv/transformers.csv"
-SHUNT_FILE="../data/hawaii40_osu/csv/shunt_impedances.csv"
+LINES_FILE=config.LINES_CSV
+LOADS_FILE=config.LOADS_CSV
+GENS_FILE =config.GENERATORS_CSV
+BUSES_FILE=config.BUSES_CSV
+TRANS_FILE=config.TRANSFORMERS_CSV
+SHUNT_FILE=config.SHUNT_IMPEDANCES_CSV
 
-CDLIB = "../data/ieee738/conductor_library.csv"
-CDRAT = "../data/ieee738/conductor_ratings.csv"
+CDLIB = config.CONDUCTOR_LIBRARY_CSV
+CDRAT = config.CONDUCTOR_RATINGS_CSV
 
 class Conductors:
     __slots__ = ["library", "ratings"]
