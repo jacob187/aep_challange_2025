@@ -1,5 +1,5 @@
 from . import config
-from .ieee738 import ConductorParams
+from . import ieee738
 import pandas
 import pypsa
 
