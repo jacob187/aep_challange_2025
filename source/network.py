@@ -20,15 +20,15 @@ class Conductors:
         self.library = pandas.read_csv(CDLIB)
         self.ratings = pandas.read_csv(CDRAT)
 
-    def find_library(self, name: str):
+    def find_library(self, name):
         for _, conductor in self.library.iterrows():
             if conductor["ConductorName"] == name:
                 return conductor
         return None
     
-    def find_rating(self, name: str):
+    def find_rating(self, name, mot):
         for _, conductor in self.rating.iterrows():
-            if conductor["ConductorName"] == name:
+            if conductor["ConductorName"] == name and conductor["MOT"] == mot:
                 return conductor
         return None
     
@@ -87,25 +87,49 @@ class Network:
         for _, row in self.shunts.iterrows():
             self.subnet.add("ShuntImpedance", **row)
 
+    def find_bus(self, name):
+        for _, row in self.buses.iterrows():
+            if row["name"] == int(name):
+                return row
+        return None
+            
     @staticmethod
-    def __adjust_s_nom(atmos_params, line):
+    def __adjust_s_nom(network, atmos_params, line):
         conductor = network.conductors.find_library(line["conductor"])
+        bus0 = network.find_bus(line["bus0"])
+        bus1 = network.find_bus(line["bus1"])
+
+        assert bus0["v_nom"] == bus1["v_nom"]
+        x_diff = abs(bus0["x"] - bus0["y"])
+        y_diff = abs(bus0["y"] - bus1["y"])
+        v_nom = float(bus0["v_nom"])
+        if x_diff > y_diff:
+            direction = "EastWest"
+        else:
+            direction = "NorthSouth"
+        
         params = atmos_params.apply(
+            Direction=direction,
             Tc=line["MOT"],
             Diameter=conductor["CDRAD_in"] * 2,
             TLo=25,
-        RLo=conductor["RES_25C"] / 5280,
-        THi=50,
-        RHi=conductor["RES_50C"] / 5280)
+            RLo=conductor["RES_25C"] / 5280,
+            THi=50,
+            RHi=conductor["RES_50C"] / 5280)
         
         conductor = ieee738.Conductor(params)
-        line["s_nom"] = conductor.steady_state_thermal_rating()
+        I = conductor.steady_state_thermal_rating()
+        Ikv = 3**0.5 * I * (v_nom * 1000)  / 1e6
+        line["s_nom"] = Ikv
+        line["Qs"] = conductor.qs
+        line["Qc"] = conductor.qc
+        line["Qr"] = conductor.qr
         return line
     
     def apply_atmospherics(self, **kwargs):
         atmos_params = PartialConductorParams(**kwargs)
         self.subnet.lines = self.subnet.lines.apply(
-            lambda line : self.__adjust_s_nom(atmos_params, line), axis=1)
+            lambda line : self.__adjust_s_nom(self, atmos_params, line), axis=1)
 
     def reset(self):
         self.__create_subnet()
@@ -116,14 +140,28 @@ class Network:
 
 network = Network()
 atmospherics = {
-    "Ta" : 39,
+    "Ta" : 28,
     "WindVelocity" : 1.0,
-    "WindAngleDeg" : 45,
+    "WindAngleDeg" : 30,
     "Elevation" : 100,
-    "Latitude" : 27.0,
+    "Latitude" : 11.0,
     "SunTime" : 12,
-    "Emissivity" : 0.5,
-    "Absorptivity" : 0.5,
+    "Emissivity" : 0.8,
+    "Absorptivity" : 0.8,
     "Direction" : "EastWest",
     "Atmosphere" : "Clear"
+}
+ambient_defaults = {
+    'Ta': 25,
+    'WindVelocity': 2.0, 
+    'WindAngleDeg': 90,
+    'SunTime': 12,
+    'Elevation': 1000,
+    'Latitude': 27,
+    'SunTime': 12,
+    'Emissivity': 0.8,
+    'Absorptivity': 0.8,
+    'Direction': 'EastWest',
+    'Atmosphere': 'Clear',
+    'Date': '12 Jun',
 }
