@@ -3,6 +3,8 @@ from . import ieee738
 import pandas
 import pypsa
 from math import pi, sin
+# import base class
+from abc import ABC, abstractmethod
 
 LINES_FILE=config.LINES_CSV
 LOADS_FILE=config.LOADS_CSV
@@ -45,7 +47,7 @@ class PartialConductorParams:
         return ieee738.ConductorParams(**full_arguments)
 
         
-class Network:
+class Network(ABC):
     __slots__ = [
         "subnet",
         "conductors",
@@ -67,9 +69,9 @@ class Network:
         self.transformers = pandas.read_csv(TRANS_FILE)
         self.shunts = pandas.read_csv(SHUNT_FILE)
         self.results = list()
-        self.__create_subnet()
+        self._create_subnet()
 
-    def __create_subnet(self):
+    def _create_subnet(self):
         self.subnet = pypsa.Network()
         for _, row in self.buses.iterrows():
             self.subnet.add("Bus", **(row.to_dict()))
@@ -98,7 +100,7 @@ class Network:
         return None
             
     @staticmethod
-    def __adjust_s_nom(network, atmos_params, line):
+    def _adjust_s_nom(network, atmos_params, line):
         conductor = network.conductors.find_library(line["conductor"])
         bus0 = network.find_bus(line["bus0"])
         bus1 = network.find_bus(line["bus1"])
@@ -132,7 +134,7 @@ class Network:
         return line
 
     @staticmethod
-    def __calculate_stress(network, line):
+    def _calculate_stress(network, line):
         s_nom   = line["s_nom"]
         v_nom   = line["v_nom"]
         ratings = network.conductors.find_rating(line["conductor"], line["MOT"])
@@ -171,15 +173,15 @@ class Network:
         self.subnet.loads = self.loads.apply(
             lambda load : self.__adjust_load(load, kwargs["SunTime"]), axis=1)
         self.subnet.lines = self.subnet.lines.apply(
-            lambda line : self.__adjust_s_nom(self, atmos_params, line), axis=1)
+            lambda line : self._adjust_s_nom(self, atmos_params, line), axis=1)
         self.solve()
         self.results = self.subnet.lines.apply(
-            lambda line : self.__calculate_stress(self, line), axis=1, result_type="expand")
+            lambda line : self._calculate_stress(self, line), axis=1, result_type="expand")
         return self.results
 
     def reset(self):
         self.loads = pandas.read_csv(LOADS_FILE)
-        self.__create_subnet()
+        self._create_subnet()
     
     def solve(self):
         self.subnet.optimize()
