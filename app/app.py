@@ -448,14 +448,7 @@ def main():
     Emissivity = 0.8#st.sidebar.slider("Emissivity", 0.0, 1.0, 0.8, 0.05, key="emissivity_input")
     Absorptivity = 0.8#st.sidebar.slider("Absorptivity", 0.0, 1.0, 0.8, 0.05, key="absorptivity_input")
     Atmosphere = st.sidebar.selectbox("Atmosphere", ["Clear", "Industrial"], key="atmosphere_input")
-    Date = st.sidebar.text_input("Date", "12 Jun", key="date_input")
-    Conductor_Orientation = st.sidebar.selectbox(
-        "Conductor Orientation",
-        ['EastWest', 'NorthSouth'],
-        key="conductor_orientation_input",
-        help="Orientation of conductor relative to sun for solar heating calculation"
-    )
-    
+    Date = st.sidebar.text_input("Date", "12 Jun", key="date_input")    
     # # Scenario presets
     
     # ========================================================================
@@ -473,8 +466,7 @@ def main():
         'Emissivity': Emissivity,
         'Absorptivity': Absorptivity,
         'Atmosphere': Atmosphere,
-        'Date': Date,
-        'Direction': Conductor_Orientation  # Use 'Direction' key as expected by ConductorParams
+        'Date': Date
     }
     
     # Reset network and apply new atmospherics
@@ -755,8 +747,7 @@ def main():
                         'Emissivity': Emissivity,
                         'Absorptivity': Absorptivity,
                         'Atmosphere': Atmosphere,
-                        'Date': Date,
-                        'Direction': Conductor_Orientation
+                        'Date': Date
                     }
                     
                     # Analyze single line contingency
