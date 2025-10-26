@@ -528,10 +528,9 @@ def main():
     st.markdown("---")
     
     # Tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab4, tab5, tab6 = st.tabs([
         "🗺️ Interactive Map", 
         "📊 Line Analysis", 
-        "🔬 Conductor Comparison",
         "📈 Detailed Data",
         "📈 Temperature Sensitivity",
         "⚡ N-1 Contingency"
@@ -602,20 +601,7 @@ def main():
         
         st.plotly_chart(fig, width="stretch")
     
-    with tab3:
-        
-        st.plotly_chart(
-            create_conductor_comparison_chart(network, atmos_params),
-            use_container_width=True,
-            key=f"conductor_chart_{Ta}_{WindVelocity}_{WindAngleDeg}_{SunTime}"
-        )
-        
-        st.info("""
-        **💡 Insight:** This chart shows how different conductor types perform under 
-        the current atmospheric conditions. Larger conductors generally have higher 
-        thermal ratings but may be more expensive to install.
-        """)
-    
+  
     with tab4:
         st.subheader("Complete Line Data Export")
         
