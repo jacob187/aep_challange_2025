@@ -84,7 +84,7 @@ class Network(ABC):
             self.subnet.add("Line", **(row.to_dict()))
 
         for _, row in self.loads.iterrows():
-            self.subnet.add("Load", **(row.to_dict()))
+            self.subnet.add("Load", name=row["name"], **(row.to_dict()))
         self.loads = self.subnet.loads
 
         for _, row in self.transformers.iterrows():
