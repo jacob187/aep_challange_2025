@@ -75,3 +75,8 @@ STRESS_THRESHOLDS = {
     0.9: StressLevel.CRITICAL,
     1.0: StressLevel.OVERLOADED,
 }
+
+# The time of day where the electrical load is at the minimum, and maximum, values.
+MINIMUM_LOAD_TIME=6
+MAXIMUM_LOAD_TIME=18
+LOAD_VARIANCE=0.15

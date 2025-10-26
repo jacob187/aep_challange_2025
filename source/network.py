@@ -2,6 +2,7 @@ from . import config
 from . import ieee738
 import pandas
 import pypsa
+from math import pi, sin
 
 LINES_FILE=config.LINES_CSV
 LOADS_FILE=config.LOADS_CSV
@@ -82,6 +83,7 @@ class Network:
 
         for _, row in self.loads.iterrows():
             self.subnet.add("Load", **(row.to_dict()))
+        self.loads = self.subnet.loads
 
         for _, row in self.transformers.iterrows():
             self.subnet.add("Transformer", **row)
@@ -151,9 +153,21 @@ class Network:
             "load_percentage" : load
         }
         return result
+
+    @staticmethod
+    def __adjust_load(load, hour_of_day):
+        assert config.MINIMUM_LOAD_TIME < config.MAXIMUM_LOAD_TIME
+        offset = config.MAXIMUM_LOAD_TIME - config.MINIMUM_LOAD_TIME
+        angle = ((hour_of_day - offset) / 24)\
+            * 2 * pi
+        p_set_n = load["p_set"] + (load["p_set"] * sin(angle) * config.LOAD_VARIANCE)
+        load["p_set"] = p_set_n
+        return load
     
     def apply_atmospherics(self, **kwargs):
         atmos_params = PartialConductorParams(**kwargs)
+        self.subnet.loads = self.loads.apply(
+            lambda load : self.__adjust_load(load, kwargs["SunTime"]), axis=1)
         self.subnet.lines = self.subnet.lines.apply(
             lambda line : self.__adjust_s_nom(self, atmos_params, line), axis=1)
         self.solve()
