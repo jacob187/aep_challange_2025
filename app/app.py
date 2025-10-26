@@ -31,6 +31,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from source.network import Network
+from source.contingency import Contingency
 from source.config import (
     ONELINE_BUSSES_GEOJSON, 
     ONELINE_LINES_GEOJSON,
@@ -50,6 +51,11 @@ def load_network():
     """Load the network once and keep it in memory.
     Use cache_resource for mutable objects that should persist across reruns."""
     return Network()
+
+@st.cache_resource
+def load_contingency_network():
+    """Load the contingency network once and keep it in memory."""
+    return ContingencyNetwork()
 
 @st.cache_data
 def load_gis_data():
