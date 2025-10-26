@@ -222,31 +222,32 @@ def create_interactive_map(lines_df, gis_lines_gdf, gis_busses_gdf):
 
 def create_conductor_comparison_chart(network, atmos_params):
     """Create a bar chart comparing all conductor types under current conditions."""
+    from source.network import PartialConductorParams
+    from source.ieee738 import Conductor
+    
     conductor_data = []
+    
+    # Convert dict to PartialConductorParams to match network.py's approach
+    atmos_params_obj = PartialConductorParams(**atmos_params)
     
     for _, conductor in network.conductors.library.iterrows():
         conductor_name = conductor['ConductorName']
         
         # Calculate rating for this conductor at multiple voltages
         for voltage_kv in [69, 138]:
-            # Use ieee738 to calculate rating
-            from source.ieee738 import Conductor, ConductorParams
+            # Use same calculation logic as network.py _adjust_s_nom()
+            params = atmos_params_obj.apply(
+                Direction='EastWest',  # Default direction for comparison chart
+                Tc=75,  # Standard MOT
+                Diameter=conductor['CDRAD_in'] * 2,
+                TLo=25,
+                RLo=conductor['RES_25C'] / 5280,
+                THi=50,
+                RHi=conductor['RES_50C'] / 5280)
             
-            params_dict = {
-                **atmos_params,
-                'Tc': 75,  # Standard MOT
-                'Diameter': conductor['CDRAD_in'] * 2,
-                'TLo': 25,
-                'RLo': conductor['RES_25C'] / 5280,
-                'THi': 50,
-                'RHi': conductor['RES_50C'] / 5280,
-                # 'Direction': 'EastWest'  # Removed hardcoding
-            }
-            
-            cond_params = ConductorParams(**params_dict)
-            cond = Conductor(cond_params)
-            rating_amps = cond.steady_state_thermal_rating()
-            rating_mva = (3**0.5 * rating_amps * voltage_kv * 1000) / 1e6
+            conductor_obj = Conductor(params)
+            I = conductor_obj.steady_state_thermal_rating()
+            rating_mva = 3**0.5 * I * (voltage_kv * 1000) / 1e6
             
             conductor_data.append({
                 'Conductor': conductor_name,
