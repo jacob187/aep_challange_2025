@@ -264,6 +264,130 @@ def create_conductor_comparison_chart(network, atmos_params):
     
     return fig
 
+def run_temperature_sensitivity_analysis(network, atmos_params, temp_range):
+    """
+    Run sensitivity analysis across temperature range, keeping other parameters constant.
+    
+    Args:
+        network: Network object
+        atmos_params: Base atmospheric parameters dict
+        temp_range: tuple of (min_temp, max_temp, step)
+    
+    Returns:
+        DataFrame with temperature vs line loading data
+    """
+    min_temp, max_temp, step = temp_range
+    
+    # Validate step size - recommend at least 1°C for solver stability
+    if step < 1.0:
+        st.warning(f"⚠️ Step size too small (recommended: 1°C or larger). Using 1°C for stability.")
+        step = 1.0
+    
+    # Generate temperature range
+    temps_list = []
+    current = min_temp
+    while current <= max_temp:
+        temps_list.append(current)
+        current += step
+    
+    if len(temps_list) > 50:
+        st.warning(f"⚠️ Running {len(temps_list)} scenarios - this may take several minutes.")
+    
+    sensitivity_data = []
+    failed_temps = []
+    
+    with st.spinner(f"🔄 Running {len(temps_list)} scenarios..."):
+        progress_bar = st.progress(0)
+        
+        for idx, temp in enumerate(temps_list):
+            modified_params = atmos_params.copy()
+            modified_params['Ta'] = float(temp)
+            
+            try:
+                network.reset()
+                results = network.apply_atmospherics(**modified_params)
+                
+                if results is not None and not results.empty:
+                    for line_idx, line_data in results.iterrows():
+                        sensitivity_data.append({
+                            'Temperature (°C)': temp,
+                            'Line': line_idx,
+                            'Load %': line_data['load_percentage'] * 100,
+                            'Overcapacity': line_data['overcapacity'],
+                            'At Risk': line_data['at_risk'],
+                            'Load A': line_data['load_a'],
+                            'Rated Capacity': line_data['rated_capacity'],
+                            'Actual Capacity': line_data['actual_capacity']
+                        })
+            except Exception as e:
+                failed_temps.append((temp, str(e)[:50]))
+            
+            progress_bar.progress((idx + 1) / len(temps_list))
+    
+    if failed_temps:
+        st.info(f"⏭️ Skipped {len(failed_temps)} scenarios due to convergence issues")
+    
+    return pd.DataFrame(sensitivity_data) if sensitivity_data else None
+
+def create_temperature_sensitivity_chart(sensitivity_df):
+    """Create a line chart showing loading percentage vs temperature for each line."""
+    fig = px.line(
+        sensitivity_df,
+        x='Temperature (°C)',
+        y='Load %',
+        color='Line',
+        title='Line Loading vs Ambient Temperature',
+        labels={'Load %': 'Loading Percentage (%)'},
+        height=500
+    )
+    
+    # Add critical threshold line
+    fig.add_hline(y=100, line_dash="dash", line_color="red", annotation_text="Critical (100%)")
+    fig.add_hline(y=95, line_dash="dash", line_color="orange", annotation_text="Caution (95%)")
+    fig.add_hline(y=80, line_dash="dash", line_color="yellow", annotation_text="Elevated (80%)")
+    
+    return fig
+
+def create_line_vulnerability_ranking(sensitivity_df):
+    """Create a ranking of which lines overload first as temperature increases."""
+    # Find the temperature at which each line reaches critical (100%)
+    vulnerability_data = []
+    
+    for line in sensitivity_df['Line'].unique():
+        line_df = sensitivity_df[sensitivity_df['Line'] == line].sort_values('Temperature (°C)')
+        
+        # Find critical temperature
+        critical_temps = line_df[line_df['Load %'] >= 100]
+        if not critical_temps.empty:
+            critical_temp = critical_temps.iloc[0]['Temperature (°C)']
+            max_load = line_df['Load %'].max()
+        else:
+            critical_temp = None
+            max_load = line_df['Load %'].max()
+        
+        # Find at-risk temperature (95%)
+        at_risk_temps = line_df[line_df['Load %'] >= 95]
+        if not at_risk_temps.empty:
+            at_risk_temp = at_risk_temps.iloc[0]['Temperature (°C)']
+        else:
+            at_risk_temp = None
+        
+        vulnerability_data.append({
+            'Line': line,
+            'Critical Temp (°C)': critical_temp,
+            'At-Risk Temp (°C)': at_risk_temp,
+            'Max Load %': max_load,
+            'Vulnerability': 'CRITICAL' if critical_temp is not None else ('AT-RISK' if at_risk_temp is not None else 'SAFE')
+        })
+    
+    vuln_df = pd.DataFrame(vulnerability_data)
+    
+    # Sort by critical temperature (None values last)
+    vuln_df['sort_key'] = vuln_df['Critical Temp (°C)'].fillna(float('inf'))
+    vuln_df = vuln_df.sort_values('sort_key').drop('sort_key', axis=1)
+    
+    return vuln_df.reset_index(drop=True)
+
 # ============================================================================
 # MAIN APP
 # ============================================================================
@@ -441,17 +565,18 @@ def main():
     st.markdown("---")
     
     # Tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🗺️ Interactive Map", 
         "📊 Line Analysis", 
         "🔬 Conductor Comparison",
-        "📈 Detailed Data"
+        "📈 Detailed Data",
+        "📈 Temperature Sensitivity"
     ])
     
     with tab1:
         st.plotly_chart(
             create_interactive_map(lines_df, gis_lines_gdf, gis_busses_gdf),
-            use_container_width=True
+            config={"use_container_width": True}
         )
         
         # Legend
@@ -487,7 +612,7 @@ def main():
                 'actual_capacity': '{:.2f}',
                 'loading_pct_display': '{:.1f}%'
             }),
-            use_container_width=True
+            width="stretch"
         )
         
         # Add explanation
@@ -513,12 +638,12 @@ def main():
         fig.add_vline(x=95, line_dash="dash", line_color="orange", annotation_text="Caution")
         fig.add_vline(x=100, line_dash="dash", line_color="red", annotation_text="Critical")
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     
     with tab3:
         st.plotly_chart(
             create_conductor_comparison_chart(network, atmos_params),
-            use_container_width=True
+            config={"use_container_width": True}
         )
         
         st.info("""
@@ -562,7 +687,7 @@ def main():
         
         st.dataframe(
             lines_df[available_cols].style.format(format_dict),
-            use_container_width=True
+            width="stretch"
         )
         
         # Summary statistics
@@ -582,6 +707,40 @@ def main():
             file_name=f"grid_analysis_T{Ta}C_Wind{WindVelocity}fps.csv",
             mime="text/csv"
         )
+    
+    with tab5:
+        st.subheader("🌡️ Temperature Sensitivity Analysis")
+        st.markdown("""
+        **Purpose:** Identify which transmission lines are most vulnerable to temperature increases.
+        
+        This analysis sweeps through a range of ambient temperatures to determine which lines overload first.
+        """)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            min_temp = st.number_input("Min Temp (°C)", value=15.0, step=.1, key="min_t_sens")
+        with col2:
+            max_temp = st.number_input("Max Temp (°C)", value=50.0, step=0.1, key="max_t_sens")
+        with col3:
+            step_val = st.number_input("Step (°C)", value=2.0, step=1.0, min_value=1.0, key="step_t_sens", help="Use 1-5°C for stability")
+        
+        st.caption("💡 Tip: Use 1-5°C temperature steps. Smaller steps may cause solver convergence issues.")
+        
+        if st.button("▶️ Run Analysis", key="run_sens_btn"):
+            sensitivity_df = run_temperature_sensitivity_analysis(network, atmos_params, (min_temp, max_temp, step_val))
+            
+            if sensitivity_df is not None and not sensitivity_df.empty:
+                st.plotly_chart(create_temperature_sensitivity_chart(sensitivity_df), config={"use_container_width": True})
+                
+                vuln_df = create_line_vulnerability_ranking(sensitivity_df)
+                st.subheader("Vulnerability Ranking")
+                st.dataframe(vuln_df, width="stretch")
+                
+                st.info("This analysis helps identify infrastructure priorities.")
+            else:
+                st.error("Analysis failed")
+        else:
+            st.info("👆 Click button to run analysis")
     
     # ========================================================================
     # FOOTER
