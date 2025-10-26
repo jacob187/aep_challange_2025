@@ -232,7 +232,7 @@ def create_conductor_comparison_chart(network, atmos_params):
                 'RLo': conductor['RES_25C'] / 5280,
                 'THi': 50,
                 'RHi': conductor['RES_50C'] / 5280,
-                'Direction': 'EastWest'
+                # 'Direction': 'EastWest'  # Removed hardcoding
             }
             
             cond_params = ConductorParams(**params_dict)
@@ -441,6 +441,14 @@ def main():
     Absorptivity = 0.8#st.sidebar.slider("Absorptivity", 0.0, 1.0, 0.8, 0.05, key="absorptivity_input")
     Atmosphere = st.sidebar.selectbox("Atmosphere", ["Clear", "Industrial"], key="atmosphere_input")
     Date = st.sidebar.text_input("Date", "12 Jun", key="date_input")
+    Conductor_Orientation = st.sidebar.selectbox(
+        "Conductor Orientation",
+        ['EastWest', 'NorthSouth'],
+        key="conductor_orientation_input",
+        help="Orientation of conductor relative to sun for solar heating calculation"
+    )
+    
+    # # Scenario presets
     
     # ========================================================================
     # CALCULATE WITH CURRENT PARAMETERS
@@ -457,7 +465,8 @@ def main():
         'Emissivity': Emissivity,
         'Absorptivity': Absorptivity,
         'Atmosphere': Atmosphere,
-        'Date': Date
+        'Date': Date,
+        'Direction': Conductor_Orientation  # Use 'Direction' key as expected by ConductorParams
     }
     
     # Reset network and apply new atmospherics
@@ -585,9 +594,11 @@ def main():
         st.plotly_chart(fig, width="stretch")
     
     with tab3:
+        
         st.plotly_chart(
             create_conductor_comparison_chart(network, atmos_params),
-            config={"use_container_width": True}
+            use_container_width=True,
+            key=f"conductor_chart_{Ta}_{WindVelocity}_{WindAngleDeg}_{SunTime}"
         )
         
         st.info("""
