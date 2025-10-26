@@ -53,9 +53,11 @@ def load_network():
     return Network()
 
 @st.cache_resource
-def load_contingency_network():
-    """Load the contingency network once and keep it in memory."""
-    return ContingencyNetwork()
+def load_contingency_analyzer():
+    """Load the contingency analyzer with its own network instance.
+    This keeps the contingency analysis separate from the main network."""
+    contingency_network = Network()
+    return Contingency(contingency_network)
 
 @st.cache_data
 def load_gis_data():
@@ -526,12 +528,13 @@ def main():
     st.markdown("---")
     
     # Tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🗺️ Interactive Map", 
         "📊 Line Analysis", 
         "🔬 Conductor Comparison",
         "📈 Detailed Data",
-        "📈 Temperature Sensitivity"
+        "📈 Temperature Sensitivity",
+        "⚡ N-1 Contingency"
     ])
     
     with tab1:
@@ -702,6 +705,116 @@ def main():
                 st.error("Analysis failed")
         else:
             st.info("👆 Click button to run analysis")
+    
+    with tab6:
+        st.subheader("⚡ N-1 Contingency Analysis")
+        st.markdown("""
+        **Purpose:** Simulate the outage of a single transmission line to identify 
+        potential overloads in the remaining system.
+        
+        N-1 analysis ensures grid reliability by verifying the system can handle any single line failure.
+        """)
+        
+        # Load cached contingency analyzer
+        contingency = load_contingency_analyzer()
+        
+        st.markdown("### Select a Line to Outage")
+        
+        # Get all available lines
+        available_lines = contingency.base_network.subnet.lines.index.tolist()
+        
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            # Dropdown selection for line
+            selected_line = st.selectbox(
+                "Select Transmission Line:",
+                available_lines,
+                key="n1_line_select"
+            )
+        
+        with col2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            run_analysis = st.button("🔍 Analyze Outage", key="run_n1_analysis")
+        
+        if run_analysis:
+            with st.spinner(f"Analyzing outage of {selected_line}..."):
+                try:
+                    # Build atmospheric parameters - N-1 uses fixed conditions, not sliders
+                    # Using default moderate conditions for N-1 analysis
+                    n1_atmos_params = DEFAULT_IEEE738_PARAMS
+                    
+                    # Analyze single line contingency
+                    results = contingency.analyze_line_outage(
+                        line_name=selected_line,
+                        atmos_params=n1_atmos_params
+                    )
+                    
+                    if results and results[0].get('affected_branch') != 'POWER_FLOW_FAILED':
+                        results_df = pd.DataFrame(results)
+                        
+                        if len(results_df) > 0:
+                            st.error(f"⚠️ **{len(results_df)} branch(es) affected by outage of {selected_line}**")
+                            
+                            # Display results
+                            display_cols = ['affected_branch', 'load_a', 'rated_capacity', 
+                                           'actual_capacity', 'load_percentage', 'overcapacity', 'at_risk']
+                            
+                            formatted_df = results_df[display_cols].copy()
+                            formatted_df['load_percentage'] = (formatted_df['load_percentage'] * 100).round(1)
+                            formatted_df.rename(columns={'load_percentage': 'load_%'}, inplace=True)
+                            
+                            # Highlight critical rows
+                            def highlight_critical(row):
+                                if row['overcapacity']:
+                                    return ['background-color: #880000'] * len(row)
+                                elif row['at_risk']:
+                                    return ['background-color: #883300'] * len(row)
+                                else:
+                                    return [''] * len(row)
+                            
+                            st.dataframe(
+                                formatted_df.style.apply(highlight_critical, axis=1).format({
+                                    'load_a': '{:.2f}',
+                                    'rated_capacity': '{:.2f}',
+                                    'actual_capacity': '{:.2f}',
+                                    'load_%': '{:.1f}%'
+                                }),
+                                use_container_width=True
+                            )
+                            
+                            # Summary metrics
+                            col1, col2, col3 = st.columns(3)
+                            col1.metric("Affected Branches", len(results_df))
+                            col2.metric("Overloaded", results_df['overcapacity'].sum())
+                            col3.metric("At Risk", results_df['at_risk'].sum())
+                            
+                            # Download button
+                            csv = results_df.to_csv(index=False)
+                            st.download_button(
+                                label="📥 Download Results as CSV",
+                                data=csv,
+                                file_name=f"n1_outage_{selected_line}.csv",
+                                mime="text/csv"
+                            )
+                        else:
+                            st.success(f"✅ No issues detected for outage of {selected_line}")
+                    elif results and results[0].get('affected_branch') == 'POWER_FLOW_FAILED':
+                        st.error(f"❌ Power flow failed for outage of {selected_line}")
+                        st.warning(f"Error: {results[0].get('error', 'Unknown error')}")
+                    else:
+                        st.success(f"✅ No issues detected for outage of {selected_line}")
+                        
+                except Exception as e:
+                    st.error(f"Error running contingency analysis: {str(e)}")
+                    import traceback
+                    with st.expander("Debug Info"):
+                        st.code(traceback.format_exc())
+        
+        st.info("""
+        **Note:** N-1 contingency analysis uses fixed atmospheric conditions (25°C, 2 ft/s wind) 
+        to provide consistent baseline analysis independent of the weather sliders in other tabs.
+        """)
     
     # ========================================================================
     # FOOTER

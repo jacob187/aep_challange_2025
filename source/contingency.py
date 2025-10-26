@@ -35,6 +35,23 @@ class Contingency:
         """
         self.base_network = base_network
         self.contingency_results = None
+    
+    def analyze_line_outage(self, line_name: str, atmos_params: Dict) -> List[Dict]:
+        """
+        Analyze the impact of a single line outage.
+        
+        Args:
+            line_name: Name/ID of the line to outage
+            atmos_params: Atmospheric parameters for the analysis
+        
+        Returns:
+            List of dictionaries containing results for branches with issues
+        """
+        return self._analyze_single_contingency(
+            component_type="Line",
+            component_name=line_name,
+            atmos_params=atmos_params
+        )
 
     def run_n1_analysis(self, atmos_params: Dict, component_types: Optional[List[str]] = None) -> pd.DataFrame:
         """
@@ -148,14 +165,12 @@ class Contingency:
         contingency_network = copy.deepcopy(self.base_network)
         
         try:
-            # Take the component out of service by setting s_nom to a very small value
-            # (Setting to 0 might cause numerical issues in some solvers)
+            # Take the component out of service by setting active to False
+            # This is PyPSA's recommended way to disable components for contingency analysis
             if component_type == "Line":
-                original_s_nom = contingency_network.subnet.lines.loc[component_name, "s_nom"]
-                contingency_network.subnet.lines.loc[component_name, "s_nom"] = 0.001
+                contingency_network.subnet.lines.loc[component_name, "active"] = False
             elif component_type == "Transformer":
-                original_s_nom = contingency_network.subnet.transformers.loc[component_name, "s_nom"]
-                contingency_network.subnet.transformers.loc[component_name, "s_nom"] = 0.001
+                contingency_network.subnet.transformers.loc[component_name, "active"] = False
             
             # Apply atmospheric conditions and solve power flow
             atmos_params_obj = PartialConductorParams(**atmos_params)
