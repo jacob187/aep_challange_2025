@@ -106,7 +106,7 @@ class Network(ABC):
         bus1 = network.find_bus(line["bus1"])
 
         assert bus0["v_nom"] == bus1["v_nom"]
-        x_diff = abs(bus0["x"] - bus0["x"])
+        x_diff = abs(bus0["x"] - bus1["x"])
         y_diff = abs(bus0["y"] - bus1["y"])
         v_nom = float(bus0["v_nom"])
         if x_diff > y_diff:
