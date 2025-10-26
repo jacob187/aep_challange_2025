@@ -8,7 +8,6 @@ varying atmospheric conditions using IEEE-738 thermal rating calculations.
 Features:
 - Interactive map visualization with color-coded line stress
 - Real-time atmospheric parameter adjustment with sliders
-- Quick scenario presets (Heat Wave, Cool & Windy, etc.)
 - Line analysis with top N stressed lines
 - Conductor comparison charts
 - Data export functionality
@@ -436,52 +435,12 @@ def main():
         help="Affects solar heating on conductors"
     )
     
-    # Elevation
-    Elevation = st.sidebar.number_input(
-        "🏔️ Elevation (ft)",
-        min_value=0,
-        max_value=5000,
-        value=100,
-        step=50
-    )
-    
-    # Advanced settings in expander
-    with st.sidebar.expander("⚙️ Advanced Settings"):
-        pass  # Placeholder for UI grouping
-    
     # Define these outside expander so they're always available
     Latitude = st.sidebar.number_input("Latitude", value=21.0, step=0.1, key="latitude_input")
     Emissivity = 0.8#st.sidebar.slider("Emissivity", 0.0, 1.0, 0.8, 0.05, key="emissivity_input")
     Absorptivity = 0.8#st.sidebar.slider("Absorptivity", 0.0, 1.0, 0.8, 0.05, key="absorptivity_input")
     Atmosphere = st.sidebar.selectbox("Atmosphere", ["Clear", "Industrial"], key="atmosphere_input")
     Date = st.sidebar.text_input("Date", "12 Jun", key="date_input")
-
-    # Scenario presets
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("**📋 Quick Scenarios**")
-    
-    col1, col2 = st.sidebar.columns(2)
-    
-    if col1.button("🔥 Heat Wave"):
-        Ta = 45.0
-        WindVelocity = 0.5
-        st.rerun()
-    
-    if col2.button("❄️ Cool & Windy"):
-        Ta = 15.0
-        WindVelocity = 10.0
-        st.rerun()
-    
-    if col1.button("☀️ Clear Day"):
-        Ta = 25.0
-        WindVelocity = 2.0
-        SunTime = 12
-        st.rerun()
-    
-    if col2.button("🌙 Night Time"):
-        Ta = 20.0
-        SunTime = 0
-        st.rerun()
     
     # ========================================================================
     # CALCULATE WITH CURRENT PARAMETERS
@@ -492,7 +451,7 @@ def main():
         'Ta': Ta,
         'WindVelocity': WindVelocity,
         'WindAngleDeg': WindAngleDeg,
-        'Elevation': Elevation,
+        'Elevation': 500, # Defaulting elevation to 100 ft
         'Latitude': Latitude,
         'SunTime': SunTime,
         'Emissivity': Emissivity,
