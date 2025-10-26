@@ -720,18 +720,27 @@ def main():
         
         st.markdown("### Select a Line to Outage")
         
-        # Get all available lines
-        available_lines = contingency.base_network.subnet.lines.index.tolist()
+        # Get all available lines with their descriptive names
+        lines_df = contingency.base_network.subnet.lines
+        
+        # Create a dictionary mapping display names to line IDs
+        line_display_options = {}
+        for line_id in lines_df.index:
+            branch_name = lines_df.loc[line_id, 'branch_name']
+            display_name = f"{line_id}: {branch_name}"
+            line_display_options[display_name] = line_id
         
         col1, col2 = st.columns([3, 1])
         
         with col1:
-            # Dropdown selection for line
-            selected_line = st.selectbox(
+            # Dropdown selection for line (showing display name)
+            selected_display = st.selectbox(
                 "Select Transmission Line:",
-                available_lines,
+                options=list(line_display_options.keys()),
                 key="n1_line_select"
             )
+            # Get the actual line ID from the selected display name
+            selected_line = line_display_options[selected_display]
         
         with col2:
             st.markdown("<br>", unsafe_allow_html=True)
