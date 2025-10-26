@@ -720,6 +720,13 @@ def main():
         
         st.markdown("### Select a Line to Outage")
         
+        # Display current atmospheric conditions being used (updates as sliders change)
+        col_a, col_b, col_c, col_d = st.columns(4)
+        col_a.metric("🌡️ Temperature", f"{Ta}°C")
+        col_b.metric("💨 Wind Speed", f"{WindVelocity} ft/s")
+        col_c.metric("🧭 Wind Angle", f"{WindAngleDeg}°")
+        col_d.metric("☀️ Time", f"{SunTime}:00")
+        
         # Get all available lines with their descriptive names
         lines_df = contingency.base_network.subnet.lines
         
@@ -749,9 +756,22 @@ def main():
         if run_analysis:
             with st.spinner(f"Analyzing outage of {selected_line}..."):
                 try:
-                    # Build atmospheric parameters - N-1 uses fixed conditions, not sliders
-                    # Using default moderate conditions for N-1 analysis
-                    n1_atmos_params = DEFAULT_IEEE738_PARAMS
+                    # Build atmospheric parameters from sidebar sliders
+                    # This allows users to see N-1 impacts under different weather conditions
+                    # Use the same atmos_params that's used for the main analysis
+                    n1_atmos_params = {
+                        'Ta': Ta,
+                        'WindVelocity': WindVelocity,
+                        'WindAngleDeg': WindAngleDeg,
+                        'Elevation': 500,
+                        'Latitude': Latitude,
+                        'SunTime': SunTime,
+                        'Emissivity': Emissivity,
+                        'Absorptivity': Absorptivity,
+                        'Atmosphere': Atmosphere,
+                        'Date': Date,
+                        'Direction': Conductor_Orientation
+                    }
                     
                     # Analyze single line contingency
                     results = contingency.analyze_line_outage(
@@ -821,8 +841,9 @@ def main():
                         st.code(traceback.format_exc())
         
         st.info("""
-        **Note:** N-1 contingency analysis uses fixed atmospheric conditions (25°C, 2 ft/s wind) 
-        to provide consistent baseline analysis independent of the weather sliders in other tabs.
+        **💡 Tip:** N-1 contingency analysis uses the current atmospheric conditions from the sidebar sliders. 
+        Adjust the temperature, wind speed, wind angle, and time of day to see how line outages 
+        perform under different weather scenarios!
         """)
     
     # ========================================================================
