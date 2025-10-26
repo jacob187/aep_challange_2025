@@ -137,11 +137,13 @@ class Network:
         v_nom   = line["v_nom"]
         ratings = network.conductors.find_rating(line["conductor"], line["MOT"])
         
-        load_a  = abs(network.subnet.lines_t["p0"][line.name]["now"])
+        load_active   = abs(network.subnet.lines_t["p0"][line.name]["now"])
+        load_reactive = abs(network.subnet.lines_t["q0"][line.name]["now"])
+        load_a  = ((load_active ** 2) + (load_reactive ** 2)) ** 0.5
         cap     = ratings["RatingMVA_69"] if int(v_nom) == 69 else ratings["RatingMVA_138"]
         at_risk = s_nom > cap
-        overcap = load_a > cap
-        load    = load_a / cap
+        overcap = load_a > s_nom
+        load    = load_a / s_nom
 
         result = {
             "branch_name"     : line["branch_name"],
@@ -176,6 +178,7 @@ class Network:
         return self.results
 
     def reset(self):
+        self.loads = pandas.read_csv(LOADS_FILE)
         self.__create_subnet()
     
     def solve(self):
