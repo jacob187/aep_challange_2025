@@ -8,7 +8,7 @@ Follow these instructions to set up and run the application.
 
 ### Prerequisites
 
-Ensure you have Python 3.8+ installed.
+Ensure you have Python 3.12+ installed.
 
 ### Installation
 
@@ -44,10 +44,10 @@ This will open the application in your web browser.
 
 ## Features
 
-- Interactive map visualization with color-coded line stress
-- Real-time atmospheric parameter adjustment with sliders
-- Quick scenario presets (Heat Wave, Cool & Windy, etc.)
-- Data export functionality
+- Interactive map visualization with color-coded line stress.
+- Real-time atmospheric parameter adjustment with sliders.
+- Data export functionality.
+- N - 1 algorithm implementation with dataframe analysis.
 
 ## Acknowledgments
 
