@@ -8,7 +8,6 @@ varying atmospheric conditions using IEEE-738 thermal rating calculations.
 Features:
 - Interactive map visualization with color-coded line stress
 - Real-time atmospheric parameter adjustment with sliders
-- Quick scenario presets (Heat Wave, Cool & Windy, etc.)
 - Line analysis with top N stressed lines
 - Conductor comparison charts
 - Data export functionality
@@ -233,7 +232,7 @@ def create_conductor_comparison_chart(network, atmos_params):
                 'RLo': conductor['RES_25C'] / 5280,
                 'THi': 50,
                 'RHi': conductor['RES_50C'] / 5280,
-                'Direction': 'EastWest'
+                # 'Direction': 'EastWest'  # Removed hardcoding
             }
             
             cond_params = ConductorParams(**params_dict)
@@ -436,52 +435,20 @@ def main():
         help="Affects solar heating on conductors"
     )
     
-    # Elevation
-    Elevation = st.sidebar.number_input(
-        "🏔️ Elevation (ft)",
-        min_value=0,
-        max_value=5000,
-        value=100,
-        step=50
-    )
-    
-    # Advanced settings in expander
-    with st.sidebar.expander("⚙️ Advanced Settings"):
-        pass  # Placeholder for UI grouping
-    
     # Define these outside expander so they're always available
     Latitude = st.sidebar.number_input("Latitude", value=21.0, step=0.1, key="latitude_input")
     Emissivity = 0.8#st.sidebar.slider("Emissivity", 0.0, 1.0, 0.8, 0.05, key="emissivity_input")
     Absorptivity = 0.8#st.sidebar.slider("Absorptivity", 0.0, 1.0, 0.8, 0.05, key="absorptivity_input")
     Atmosphere = st.sidebar.selectbox("Atmosphere", ["Clear", "Industrial"], key="atmosphere_input")
     Date = st.sidebar.text_input("Date", "12 Jun", key="date_input")
-
-    # Scenario presets
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("**📋 Quick Scenarios**")
+    Conductor_Orientation = st.sidebar.selectbox(
+        "Conductor Orientation",
+        ['EastWest', 'NorthSouth'],
+        key="conductor_orientation_input",
+        help="Orientation of conductor relative to sun for solar heating calculation"
+    )
     
-    col1, col2 = st.sidebar.columns(2)
-    
-    if col1.button("🔥 Heat Wave"):
-        Ta = 45.0
-        WindVelocity = 0.5
-        st.rerun()
-    
-    if col2.button("❄️ Cool & Windy"):
-        Ta = 15.0
-        WindVelocity = 10.0
-        st.rerun()
-    
-    if col1.button("☀️ Clear Day"):
-        Ta = 25.0
-        WindVelocity = 2.0
-        SunTime = 12
-        st.rerun()
-    
-    if col2.button("🌙 Night Time"):
-        Ta = 20.0
-        SunTime = 0
-        st.rerun()
+    # # Scenario presets
     
     # ========================================================================
     # CALCULATE WITH CURRENT PARAMETERS
@@ -492,13 +459,14 @@ def main():
         'Ta': Ta,
         'WindVelocity': WindVelocity,
         'WindAngleDeg': WindAngleDeg,
-        'Elevation': Elevation,
+        'Elevation': 500, # Defaulting elevation to 100 ft
         'Latitude': Latitude,
         'SunTime': SunTime,
         'Emissivity': Emissivity,
         'Absorptivity': Absorptivity,
         'Atmosphere': Atmosphere,
-        'Date': Date
+        'Date': Date,
+        'Direction': Conductor_Orientation  # Use 'Direction' key as expected by ConductorParams
     }
     
     # Reset network and apply new atmospherics
@@ -626,9 +594,11 @@ def main():
         st.plotly_chart(fig, width="stretch")
     
     with tab3:
+        
         st.plotly_chart(
             create_conductor_comparison_chart(network, atmos_params),
-            config={"use_container_width": True}
+            use_container_width=True,
+            key=f"conductor_chart_{Ta}_{WindVelocity}_{WindAngleDeg}_{SunTime}"
         )
         
         st.info("""
