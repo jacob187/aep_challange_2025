@@ -74,7 +74,7 @@ def calculate_stress_level(loading_pct):
     else:
         return "Critical", "red"
 
-def create_line_results_df(network_results, network):
+def create_line_results_df(network_results: pd.DataFrame, network: Network) -> pd.DataFrame:
     """
     Create a comprehensive DataFrame with line analysis results.
     
@@ -85,67 +85,42 @@ def create_line_results_df(network_results, network):
     Returns:
         DataFrame with stress analysis and line metadata merged
     """
-    # Check if network_results is None or empty
-    if network_results is None:
-        st.error("❌ Network analysis returned no results. This may indicate a power flow convergence issue.")
-        with st.expander("🔍 Debugging Info"):
-            st.write("network.apply_atmospherics() returned None")
-            st.write("Possible causes:")
-            st.write("- Power flow did not converge")
-            st.write("- __calculate_stress() has an error")
-            st.write("- subnet.lines.apply() with result_type='expand' failed")
-        return None
+    # Start with the results from the network calculation
+    results_df = network_results.copy()
     
-    try:
-        # Start with the results from the network calculation
-        results_df = network_results.copy() if isinstance(network_results, pd.DataFrame) else network_results
-        
-        # Get line metadata - 'name' is the index, not a column!
-        lines_meta = network.subnet.lines[['bus0', 'bus1', 'conductor', 'length', 'v_nom']].copy()
-        lines_meta['name'] = lines_meta.index  # Add name from index
-        
-        # Merge on index (both should have same index/order)
-        lines_df = pd.concat([lines_meta, results_df], axis=1)
-        
-        # Verify required columns exist
-        required_cols = ['load_percentage']
-        missing_cols = [col for col in required_cols if col not in lines_df.columns]
-        
-        if missing_cols:
-            st.warning(f"⚠️ Missing columns: {missing_cols}")
-            st.info(f"Available columns in network_results: {results_df.columns.tolist()}")
-        
-        # Convert load_percentage (0-1 scale) to percent and classify stress
-        if 'load_percentage' in lines_df.columns:
-            lines_df['loading_pct_display'] = lines_df['load_percentage'] * 100
-        else:
-            st.warning("⚠️ 'load_percentage' column not found")
-            lines_df['loading_pct_display'] = 0
-        
-        if 'stress_level' not in lines_df.columns or 'stress_color' not in lines_df.columns:
-            # Recalculate if missing
-            lines_df['stress_level'] = lines_df['load_percentage'].apply(
-                lambda x: calculate_stress_level(x)[0] if pd.notna(x) else 'Unknown'
-            )
-            lines_df['stress_color'] = lines_df['load_percentage'].apply(
-                lambda x: calculate_stress_level(x)[1] if pd.notna(x) else 'gray'
-            )
-        
-        return lines_df
+    # Get line metadata - 'name' is the index, not a column!
+    lines_meta = network.subnet.lines[['bus0', 'bus1', 'conductor', 'length', 'v_nom']].copy()
+    lines_meta['name'] = lines_meta.index  # Add name from index
     
-    except Exception as e:
-        st.error(f"❌ Error processing network results: {str(e)}")
-        with st.expander("🔍 Debug Information"):
-            if hasattr(network_results, 'columns'):
-                st.write(f"Columns in network_results: {network_results.columns.tolist()}")
-                st.write(f"Index name: {network_results.index.name}")
-                st.write(f"Shape: {network_results.shape}")
-                st.write(f"Index values (first 5): {network_results.index[:5].tolist()}")
-                st.dataframe(network_results.head())
-            else:
-                st.write(f"Type: {type(network_results)}")
-                st.write(f"Content: {network_results}")
-        return None
+    # Merge on index (both should have same index/order)
+    lines_df = pd.concat([lines_meta, results_df], axis=1)
+    
+    # Verify required columns exist
+    required_cols = ['load_percentage']
+    missing_cols = [col for col in required_cols if col not in lines_df.columns]
+    
+    if missing_cols:
+        st.warning(f"⚠️ Missing columns: {missing_cols}")
+        st.info(f"Available columns in network_results: {results_df.columns.tolist()}")
+    
+    # Convert load_percentage (0-1 scale) to percent and classify stress
+    if 'load_percentage' in lines_df.columns:
+        lines_df['loading_pct_display'] = lines_df['load_percentage'] * 100
+    else:
+        st.warning("⚠️ 'load_percentage' column not found")
+        lines_df['loading_pct_display'] = 0
+    
+    if 'stress_level' not in lines_df.columns or 'stress_color' not in lines_df.columns:
+        # Recalculate if missing
+        lines_df['stress_level'] = lines_df['load_percentage'].apply(
+            lambda x: calculate_stress_level(x)[0] if pd.notna(x) else 'Unknown'
+        )
+        lines_df['stress_color'] = lines_df['load_percentage'].apply(
+            lambda x: calculate_stress_level(x)[1] if pd.notna(x) else 'gray'
+        )
+    
+    return lines_df
+
 def create_interactive_map(lines_df, gis_lines_gdf, gis_busses_gdf):
     """Create an interactive Plotly map with color-coded stress levels."""
     
