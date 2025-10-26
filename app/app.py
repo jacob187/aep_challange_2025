@@ -96,14 +96,6 @@ def create_line_results_df(network_results, network):
             st.write("- subnet.lines.apply() with result_type='expand' failed")
         return None
     
-    if isinstance(network_results, pd.Series):
-        st.warning("⚠️ Network returned Series instead of DataFrame - attempting to convert")
-        network_results = network_results.to_frame().T
-    
-    if network_results.empty:
-        st.error("❌ Network analysis returned empty results.")
-        return None
-    
     try:
         # Start with the results from the network calculation
         results_df = network_results.copy() if isinstance(network_results, pd.DataFrame) else network_results
