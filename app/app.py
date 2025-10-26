@@ -65,11 +65,9 @@ def load_gis_data():
 
 def calculate_stress_level(loading_pct):
     """Classify stress level based on loading percentage (0-100+ scale)."""
-    if loading_pct < 0.80:
+    if loading_pct < 0.60:
         return "Normal", "green"
-    elif loading_pct < 0.95:
-        return "Elevated", "yellow"
-    elif loading_pct < 1.00:
+    elif loading_pct < 0.90:
         return "Caution", "orange"
     else:
         return "Critical", "red"
@@ -173,12 +171,11 @@ def create_interactive_map(lines_df, gis_lines_gdf, gis_busses_gdf):
             f"<b>{row['LineName']}</b><br>"
             f"ID: {line_name}<br>"
             f"Status: <b>{stress_level}</b><br>"
-            f"Loading: {loading_pct:.1f}%<br>"
-            f"Actual Load: {load_a:.1f} MVA<br>"
+            f"Load: {loading_pct:.1f}%<br>"
+            f"Apparent Load: {load_a:.1f} MVA<br>"
             f"Rated Capacity: {rated_cap:.1f} MVA<br>"
             f"Dynamic Capacity: {actual_cap:.1f} MVA<br>"
             f"Voltage: {row['nomkv']} kV<br>"
-            f"{'⚠️ AT RISK' if at_risk else ''}"
             f"{'🚨 OVERLOADED' if overcap else ''}"
         )
         
@@ -314,8 +311,7 @@ def run_temperature_sensitivity_analysis(network, atmos_params, temp_range):
                             'Line': line_idx,
                             'Load %': line_data['load_percentage'] * 100,
                             'Overcapacity': line_data['overcapacity'],
-                            'At Risk': line_data['at_risk'],
-                            'Load A': line_data['load_a'],
+                            'Apparent Load': line_data['load_a'],
                             'Rated Capacity': line_data['rated_capacity'],
                             'Actual Capacity': line_data['actual_capacity']
                         })
@@ -336,15 +332,15 @@ def create_temperature_sensitivity_chart(sensitivity_df):
         x='Temperature (°C)',
         y='Load %',
         color='Line',
-        title='Line Loading vs Ambient Temperature',
-        labels={'Load %': 'Loading Percentage (%)'},
+        title='Line Load vs Ambient Temperature',
+        labels={'Load %': 'Load Percentage (%)'},
         height=500
     )
     
     # Add critical threshold line
-    fig.add_hline(y=100, line_dash="dash", line_color="red", annotation_text="Critical (100%)")
-    fig.add_hline(y=95, line_dash="dash", line_color="orange", annotation_text="Caution (95%)")
-    fig.add_hline(y=80, line_dash="dash", line_color="yellow", annotation_text="Elevated (80%)")
+    fig.add_hline(y=90, line_dash="dash", line_color="red", annotation_text="Critical (100%)")
+    fig.add_hline(y=60, line_dash="dash", line_color="orange", annotation_text="Caution (95%)")
+    #fig.add_hline(y=80, line_dash="dash", line_color="yellow", annotation_text="Elevated (80%)")
     
     return fig
 
@@ -365,19 +361,11 @@ def create_line_vulnerability_ranking(sensitivity_df):
             critical_temp = None
             max_load = line_df['Load %'].max()
         
-        # Find at-risk temperature (95%)
-        at_risk_temps = line_df[line_df['Load %'] >= 95]
-        if not at_risk_temps.empty:
-            at_risk_temp = at_risk_temps.iloc[0]['Temperature (°C)']
-        else:
-            at_risk_temp = None
-        
         vulnerability_data.append({
             'Line': line,
             'Critical Temp (°C)': critical_temp,
-            'At-Risk Temp (°C)': at_risk_temp,
             'Max Load %': max_load,
-            'Vulnerability': 'CRITICAL' if critical_temp is not None else ('AT-RISK' if at_risk_temp is not None else 'SAFE')
+            'Vulnerability': 'CRITICAL' if critical_temp is not None else 'SAFE'
         })
     
     vuln_df = pd.DataFrame(vulnerability_data)
@@ -463,8 +451,8 @@ def main():
     
     # Define these outside expander so they're always available
     Latitude = st.sidebar.number_input("Latitude", value=21.0, step=0.1, key="latitude_input")
-    Emissivity = st.sidebar.slider("Emissivity", 0.0, 1.0, 0.8, 0.05, key="emissivity_input")
-    Absorptivity = st.sidebar.slider("Absorptivity", 0.0, 1.0, 0.8, 0.05, key="absorptivity_input")
+    Emissivity = 0.8#st.sidebar.slider("Emissivity", 0.0, 1.0, 0.8, 0.05, key="emissivity_input")
+    Absorptivity = 0.8#st.sidebar.slider("Absorptivity", 0.0, 1.0, 0.8, 0.05, key="absorptivity_input")
     Atmosphere = st.sidebar.selectbox("Atmosphere", ["Clear", "Industrial"], key="atmosphere_input")
     Date = st.sidebar.text_input("Date", "12 Jun", key="date_input")
 
@@ -549,18 +537,17 @@ def main():
     
     # Use the actual flags from network analysis
     critical_lines = len(lines_df[lines_df['overcapacity'] == True])
-    at_risk_lines = len(lines_df[lines_df['at_risk'] == True])
     caution_lines = len(lines_df[(lines_df['load_percentage'] >= 0.95) & (lines_df['load_percentage'] < 1.0)])
     avg_loading = lines_df['load_percentage'].mean() * 100  # Convert to percentage
     max_loading = lines_df['load_percentage'].max() * 100
+    avg_capacity = lines_df['actual_capacity'].mean()
     
     col1.metric("🚨 Overloaded Lines", critical_lines, 
                 delta=f"{critical_lines} exceed capacity" if critical_lines > 0 else None,
                 delta_color="inverse")
-    col2.metric("⚠️ At Risk Lines", at_risk_lines,
-                help="Lines where dynamic capacity exceeds rated capacity")
-    col3.metric("📊 Avg Loading", f"{avg_loading:.1f}%")
-    col4.metric("📈 Max Loading", f"{max_loading:.1f}%")
+    col2.metric("⚡ Avg Capacity", f"{avg_capacity:.1f}MVA")
+    col3.metric("📊 Avg Load", f"{avg_loading:.1f}%")
+    col4.metric("📈 Max Load", f"{max_loading:.1f}%")
     
     st.markdown("---")
     
@@ -580,30 +567,29 @@ def main():
         )
         
         # Legend
-        col1, col2, col3, col4 = st.columns(4)
-        col1.markdown("🟢 **Normal** (<80%)")
-        col2.markdown("🟡 **Elevated** (80-95%)")
-        col3.markdown("🟠 **Caution** (95-100%)")
-        col4.markdown("🔴 **Critical** (>100%)")
+        col1, col2, col3 = st.columns(3)
+        col1.markdown("🟢 **Normal** (<60%)")
+        col2.markdown("🟠 **Caution** (>60%)")
+        col3.markdown("🔴 **Critical** (>90%)")
     
     with tab2:
         st.subheader("Top 10 Most Stressed Lines")
         
         top_stressed = lines_df.nlargest(10, 'load_percentage')[
             ['name', 'bus0', 'bus1', 'load_a', 'rated_capacity', 'actual_capacity', 
-             'loading_pct_display', 'stress_level', 'at_risk', 'overcapacity']
+             'loading_pct_display', 'stress_level', 'overcapacity']
         ].reset_index(drop=True)
         
         # Style the dataframe
         def highlight_stress(row):
             if row['overcapacity']:
-                return ['background-color: #ffcccc'] * len(row)
-            elif row['at_risk']:
-                return ['background-color: #ffe6cc'] * len(row)
-            elif row['loading_pct_display'] >= 80:
-                return ['background-color: #ffffcc'] * len(row)
+                return ['background-color: #880000'] * len(row)
+            elif row['loading_pct_display'] >= 90:
+                return ['background-color: #883300'] * len(row)
+            elif row['loading_pct_display'] >= 60:
+                return ['background-color: #444400'] * len(row)
             else:
-                return [''] * len(row)
+                return ['background-color: #101010'] * len(row)
         
         st.dataframe(
             top_stressed.style.apply(highlight_stress, axis=1).format({
@@ -618,7 +604,7 @@ def main():
         # Add explanation
         st.info("""
         **Key Metrics:**
-        - **Load A**: Actual power flow through the line (MVA)
+        - **Load A**: Apparent power flow through the line (MVA)
         - **Rated Capacity**: Static capacity from conductor ratings database
         - **Actual Capacity**: Dynamic capacity calculated via IEEE-738 (changes with weather)
         - **At Risk**: Dynamic capacity exceeds rated capacity (line can handle more than rated, but pushing limits)
@@ -630,13 +616,12 @@ def main():
             lines_df,
             x='loading_pct_display',
             nbins=20,
-            title='Distribution of Line Loading Percentages',
-            labels={'loading_pct_display': 'Loading (%)'},
+            title='Distribution of Line Load Percentages',
+            labels={'loading_pct_display': 'Load (%)'},
             color_discrete_sequence=['steelblue']
         )
-        fig.add_vline(x=80, line_dash="dash", line_color="yellow", annotation_text="Elevated")
-        fig.add_vline(x=95, line_dash="dash", line_color="orange", annotation_text="Caution")
-        fig.add_vline(x=100, line_dash="dash", line_color="red", annotation_text="Critical")
+        fig.add_vline(x=60, line_dash="dash", line_color="orange", annotation_text="Caution")
+        fig.add_vline(x=90, line_dash="dash", line_color="red", annotation_text="Critical")
         
         st.plotly_chart(fig, width="stretch")
     
