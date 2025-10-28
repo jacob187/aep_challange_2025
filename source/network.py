@@ -88,10 +88,10 @@ class Network(ABC):
         self.loads = self.subnet.loads
 
         for _, row in self.transformers.iterrows():
-            self.subnet.add("Transformer", **row)
+            self.subnet.add("Transformer", **(row.to_dict()))
             
         for _, row in self.shunts.iterrows():
-            self.subnet.add("ShuntImpedance", **row)
+            self.subnet.add("ShuntImpedance", **(row.to_dict()))
 
     def find_bus(self, name):
         for _, row in self.buses.iterrows():
